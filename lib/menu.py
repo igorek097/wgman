@@ -1,6 +1,8 @@
 from typing import Callable
 from os import system
 
+from lib.styling import colors
+
 
 class MenuItem:
     
@@ -12,9 +14,10 @@ class MenuItem:
 
 class Menu:
     
-    def __init__(self, title, exit_title='Exit') -> None:
+    def __init__(self, title, exit_title='Exit', list_only=False) -> None:
         self.title = title
         self.exit_title = exit_title
+        self.list_only = list_only
         self._items = []
         
     def add_item(self, item:MenuItem):
@@ -23,10 +26,16 @@ class Menu:
     def show(self):
         while True:
             system('clear')
-            print(self.title, end='\n\n')
+            print_title = f' {colors.BOLD_WHITE}{self.title} '
+            print(print_title)
+            for _ in self.title:
+                print('=', end='')
+            print(f'==\n{colors.DEFAULT}')
             for i, item in enumerate(self._items, start=1):
-                print(f'{i} - {item.title}')
-            print(f'{i+1} - {self.exit_title}')
+                print(f'{i} : {item.title}')
+            if self.list_only:
+                break
+            print(f'{i+1} : {self.exit_title}')
             choice = input('\n>>> ')
             try:
                 int_choice = int(choice)
