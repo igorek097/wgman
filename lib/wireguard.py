@@ -26,6 +26,8 @@ class WgInterface(WgEntity):
     
     def __init__(self, params: dict) -> None:
         super().__init__(params)
+        self.name = ''
+        self.config_path = ''
         
     def __str__(self) -> str:
         return f'{self.name} / {self.get("Address")}'
@@ -82,6 +84,7 @@ class WgPeer(WgEntity):
     
     def __init__(self, params: dict) -> None:
         super().__init__(params)
+        self.config_path = ''
         
     def __str__(self):
         return f'{self.name} / {self.get("AllowedIPs")}'
