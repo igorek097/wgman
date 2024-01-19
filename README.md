@@ -1,4 +1,4 @@
-#Basic Wireguard CLI managing tool
+# Basic Wireguard CLI managing tool
 
 ## Features
 
