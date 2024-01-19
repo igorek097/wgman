@@ -4,7 +4,7 @@
 
 ### Managing WG interfaces (networks)
 
-1. Create and launch new interface
+1. Create and launch new interfaces
 2. Remove existing interface
 3. List interface peers
 
