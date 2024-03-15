@@ -30,7 +30,7 @@ class WgInterface(WgEntity):
         self.config_path = ''
         
     def __str__(self) -> str:
-        return f'{self.name} / {self.get("Address")}'
+        return f'{self.name} ({self.get("Address")})'
         
     def pop_peer(self, peer_num):
         self.peers.pop(peer_num)
@@ -87,7 +87,7 @@ class WgPeer(WgEntity):
         self.config_path = ''
         
     def __str__(self):
-        return f'{self.name} / {self.get("AllowedIPs")}'
+        return f'{self.name} ({self.get("AllowedIPs")})'
     
     def remove_config(self):
         try:

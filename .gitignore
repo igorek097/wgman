@@ -1,3 +1,4 @@
 clients
 wireguard
 __pycache__
+wgman.cfg

@@ -1,26 +1,17 @@
 #!/usr/bin/python3
 from configparser import ConfigParser
-from os import system, listdir
-from os.path import join, basename, dirname
+from os import system, listdir, mkdir
+from os.path import join, basename, dirname, exists
 
 from lib.templates import *
 from lib.wireguard import *
 from lib.tools import *
 from lib.menu import *
 from lib import validators
-from lib.styling import colors, fonts
+from lib.styling import colors
 
 
 config = ConfigParser()
-
-
-def menu(items:list, prompt:str=None):
-    if not prompt:
-        prompt = f'Your choice'
-    prompt += f' [1-{len(items)}]: '
-    for i, item in enumerate(items):
-        print(f'{i+1}. {item}')
-    return input(prompt)
 
 
 def parse_record(record, object_class):
@@ -60,15 +51,15 @@ def get_interfaces(wg_dir):
 
 
 def list_interfaces(interfaces):
-    system('clear')
-    print('| Configured interfaces |\n')
-    for i, interface in enumerate(interfaces):
-        print(f'{i+1}. {interface.name} / {interface.get("Address")}')
+    interface_list = Menu('Configured interfaces', list_only=True)
+    for face in interfaces:
+        interface_list.add_item(MenuItem(face))
+    interface_list.show()
     input('\nPress ENTER to continue...')
     
     
 def list_peers(interfaces):
-    interface_menu = Menu('| Select interface to list peers from |', exit_title='Back')
+    interface_menu = Menu('Select interface to list peers from', exit_title='Back')
     for face in interfaces:
         interface_menu.add_item(MenuItem(face))
     choice = interface_menu.show()
@@ -92,7 +83,7 @@ def get_next_server_port(config, interfaces):
 
 
 def add_interface(config, interfaces):
-    system('clear')
+    # TODO: check IP intersection
     prompt = f'Please enter new interface unique name'
     while True:
         interface_name = input_validated(prompt, validators.InterfaceNameValidator.validate, loop=True)
@@ -158,9 +149,9 @@ def get_subnet(ip:str):
 
 
 def add_peer(config, interfaces):
-    interface_menu = Menu('| Please select interface to add peer to |')
+    interface_menu = Menu('Please select interface to add peer to')
     for face in interfaces:
-        interface_menu.add_item(MenuItem(face.name))
+        interface_menu.add_item(MenuItem(face))
     choice = interface_menu.show()
     if choice == -1:
         return
@@ -203,7 +194,7 @@ def add_peer(config, interfaces):
     if err:
         print(f'{colors.FAIL}FAILED\n{str(err)}{colors.DEFAULT}')
         print(f'Please manually add the following to {interface_config_path}:')
-        print(f'{colors.WARNING}{peer_interface_config}')
+        print(f'{colors.WARNING}{peer_interface_config}{colors.DEFAULT}')
     else:
         print(f'{colors.SUCCESS}SUCCESS{colors.DEFAULT}')
         
@@ -214,7 +205,7 @@ def add_peer(config, interfaces):
         print('Please manually create peer config file on the client device:')
         print(f'{colors.WARNING}{peer_client_config}')
     else:
-        print(f'{colors.SUCCESS}SUCCESS{colors.DEFAULT}')
+        print(f'{colors.SUCCESS}SUCCESS{colors.DEFAULT}{colors.DEFAULT}')
         
     if confirm_input('Apply config?', 'yes', 'no'):
         interface.syncconf()
@@ -224,9 +215,9 @@ def add_peer(config, interfaces):
 def remove_peer(config, interfaces):
     while True:
         system('clear')
-        interface_menu = Menu('| Please select interface to add peer to |', exit_title='Back')
+        interface_menu = Menu('Please select interface to add peer to', exit_title='Back')
         for face in interfaces:
-            interface_menu.add_item(MenuItem(face.name))
+            interface_menu.add_item(MenuItem(face))
         choice = interface_menu.show()
         if choice == -1:
             break
@@ -234,7 +225,7 @@ def remove_peer(config, interfaces):
         if not interface.peers:
             input('No peers configured for this interface.\nPress ENTER to continue...')
             continue
-        peers_menu = Menu(f'| Select peer to remove from {interface.name} |', exit_title='Back')
+        peers_menu = Menu(f'Select peer to remove from {interface.name}', exit_title='Back')
         for i, peer in enumerate(interface.peers):
             peers_menu.add_item(MenuItem(peer))
         choice = peers_menu.show()
@@ -252,22 +243,30 @@ def remove_peer(config, interfaces):
     
     
 def remove_interface(config, interfaces):
-    interface_menu = Menu('| Select interface to remove |', exit_title='Back')
+    interface_menu = Menu('Select interface to remove', exit_title='Back')
     for face in interfaces:
-        interface_menu.add_item(MenuItem(face.name))
-    interface = interfaces[interface_menu.show()-1]
+        interface_menu.add_item(MenuItem(face))
+    choice = interface_menu.show()
+    if choice == -1:
+        return
+    interface = interfaces[choice-1]
     if confirm_input(f'{colors.WARNING}Are you sure to permanently remove {interface.name}?{colors.DEFAULT}', 'yes', 'no'):
         for peer in interface.peers:
             peer.remove_config()
         interface.down()
-        interface.stop_service()
         interface.disable_service()
         interface.remove_config(config['wireguard']['wg_dir'])
-    input('Interface removed.\nPress ENTER to continue...')
+        input('Interface removed.\nPress ENTER to continue...')
+
+
+def wireguard_status():
+    system('clear')
+    system('sudo wg')
+    input('\nPress ENTER to continue...')
 
 
 def get_main_menu(interfaces):
-    main_menu = Menu('| Main Menu |')
+    main_menu = Menu('Main Menu')
     if interfaces:
         main_menu.add_item(MenuItem('List peers', list_peers, [interfaces] ))
         main_menu.add_item(MenuItem('List interfaces', list_interfaces, [interfaces]))
@@ -276,15 +275,24 @@ def get_main_menu(interfaces):
     if interfaces:
         main_menu.add_item(MenuItem('Remove peer', remove_peer, [config, interfaces]))
         main_menu.add_item(MenuItem('Remove interface', remove_interface, [config, interfaces]))
+    main_menu.add_item(MenuItem('Wireguard status', wireguard_status))
     return main_menu
 
 
 if __name__ == "__main__":
+    # TODO: check that directories exist
     try:
         config.read('./wgman.cfg')
     except:
         print('Error reading wgman.cfg')
         quit()
+    if not exists(config['general']['client_conf_dir']):
+        _, err = run_safe(mkdir, [config['general']['client_conf_dir']])
+        if err:
+            print(str(err))
+            print(f'{colors.FAIL}Failed to create directory for client .conf files. Please specify another location in wgman.cfg or create manually.{colors.DEFAULT}')
+            input('Press ENTER to quit...')
+            quit()
     while True:
         interfaces = get_interfaces(config['wireguard']['wg_dir'])
         main_menu = get_main_menu(interfaces)
